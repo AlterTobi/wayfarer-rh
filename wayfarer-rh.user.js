@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Wayfarer RH
-// @version      0.1.0
+// @version      0.2.0
 // @description  Add local review history storage to Wayfarer
 // @namespace    https://github.com/tehstone/wayfarer-rh
 // @downloadURL  https://github.com/tehstone/wayfarer-rh/raw/main/wayfarer-rh.user.js
@@ -15,7 +15,12 @@ function init() {
   let candidate;
   let userReview;
   let tryNumber = 10;
-  let selection = "wfrhSaved_";
+
+  let selection = localStorage['wfrh_review_type_dropdown'];
+  if (!selection) {
+    selection = 'wfrhSaved_';
+    localStorage['wfrh_review_type_dropdown'] = selection;
+  }
 
   function getUserId() {
     var els = document.getElementsByTagName("image");
@@ -59,7 +64,6 @@ function init() {
       const response = this.response;
       const json = JSON.parse(response);
       if (!json) {
-        console.log(response);
         alert('Failed to parse response from Wayfarer');
         return;
       }
@@ -69,7 +73,6 @@ function init() {
 
       candidate = json.result;
       if (!candidate) {
-        console.log(json);
         alert('Wayfarer\'s response didn\'t include a candidate.');
         return;
       }
@@ -126,9 +129,10 @@ function init() {
       {name: "wfrhSavedEdits_", title: "Edit Reviews"},
       {name: "wfrhSavedPhotos_", title: "Photo Reviews"}
     ];
-    select.innerHTML = reviewTypes.map(item => `<option value="${item.name}" ${item.name == "wfrhSaved_" ? 'selected' : ''}>${item.title}</option>`).join('');
+    select.innerHTML = reviewTypes.map(item => `<option value="${item.name}" ${item.name == selection ? 'selected' : ''}>${item.title}</option>`).join('');
     select.addEventListener('change', function () {
       selection = select.value;
+      localStorage['wfrh_review_type_dropdown'] = selection;
     });
 
     const dl = document.createElement('a');
@@ -167,12 +171,14 @@ function init() {
   }
 
   function clearReviewHistory() {
-    let type = "nomination review";
-    if (selection === "wfrhSavedEdits_")
-      type = "edit review"
-    if (selection === "wfrhSavedPhotos_");
-      type = "photo review"
-    if (confirm('Your saved ' + type + ' history will be cleared. Are you sure you want to do this?', '') == false) {
+    let revtype = "nomination review";
+    if (selection === "wfrhSavedEdits_") {
+      revtype = "edit review"
+    }
+    if (selection === "wfrhSavedPhotos_") {
+      revtype = "photo review"
+    }
+    if (confirm('Your saved ' + revtype + ' history will be cleared. Are you sure you want to do this?', '') == false) {
       return;
     }
 
@@ -212,7 +218,6 @@ function init() {
       let reviewHistory = getReviewHistory(edit, photo);
 
       if (!userReview) {
-        //console.log(json);
         alert('Wayfarer\'s response didn\'t include a candidate.');
         return;
       }
@@ -226,8 +231,6 @@ function init() {
         // do nothing for now
       }
       saveUserHistory(reviewHistory, edit, photo);
-      console.log(userReview);
-
     } catch (e) {
       console.log(e); // eslint-disable-line no-console
     }
@@ -237,7 +240,6 @@ function init() {
   function getReviewHistory(edit, photo) {
     let reviewHistory = [];
     const userId = getUserId();
-    console.log(userId);
     let ret = "";
     if (edit) {
       ret = localStorage["wfrhSavedEdits_" + userId];
@@ -256,7 +258,6 @@ function init() {
 
   function saveUserHistory(reviewHistory, edit, photo) {
     const userId = getUserId();
-    console.log(userId);
     let key = "wfrhSaved_" + userId;
     let value = JSON.stringify(reviewHistory);
     if (edit) {
