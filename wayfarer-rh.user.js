@@ -14,6 +14,8 @@
 function init() {
   let candidate;
   let userReview;
+  let tryNumber = 10;
+  let selection = "wfrhSaved_";
 
   function getUserId() {
     var els = document.getElementsByTagName("image");
@@ -71,13 +73,114 @@ function init() {
         alert('Wayfarer\'s response didn\'t include a candidate.');
         return;
       }
+      addCss();
       saveReviewInfo();
+      addRHButtons();
 
     } catch (e) {
       console.log(e); // eslint-disable-line no-console
     }
+  }
+
+  function addRHButtons() {
+    const userId = getUserId();
+    const ref = document.querySelector('wf-logo');
+
+    if (!ref) {
+      if (tryNumber === 0) {
+        document.querySelector('body')
+          .insertAdjacentHTML('afterBegin', '<div class="alert alert-danger"><strong><span class="glyphicon glyphicon-remove"></span> Wayfarer Review History initialization failed, refresh page</strong></div>');
+        return;
+      }
+      setTimeout(addTranslateButton, 1000);
+      tryNumber--;
+      return;
+    }
+
+    const testelem = document.getElementById("wayfarerrhexport");
+    if (testelem !== null) {
+      return;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'wayfarerrh';
+    let exportButton = document.createElement('button');
+    exportButton.innerHTML = "Export";
+    exportButton.onclick = function() {
+      exportReviewHistory();
+    }
+    exportButton.classList.add('wayfarerrh__button');
+    exportButton.id = "wayfarerrhexport";
+
+    let clearButton = document.createElement('button');
+    clearButton.innerHTML = "Reset";
+    clearButton.onclick = function() {
+      clearReviewHistory();
+    }
+    clearButton.classList.add('wayfarerrh__button');
+
+    const select = document.createElement('select');
+    select.title = "Select review type";
+    const reviewTypes = [
+      {name: "wfrhSaved_", title: "New Candidates"},
+      {name: "wfrhSavedEdits_", title: "Edit Reviews"},
+      {name: "wfrhSavedPhotos_", title: "Photo Reviews"}
+    ];
+    select.innerHTML = reviewTypes.map(item => `<option value="${item.name}" ${item.name == "wfrhSaved_" ? 'selected' : ''}>${item.title}</option>`).join('');
+    select.addEventListener('change', function () {
+      selection = select.value;
+    });
+
+    const dl = document.createElement('a');
+    dl.id = "downloadAnchorElem"
+    dl.classList.add('wayfarerrh__hiddendl');
+
+    div.appendChild(exportButton);
+    div.appendChild(clearButton);
+    div.appendChild(document.createElement('br'))
+    div.appendChild(select);
+    div.appendChild(dl);
+
+    const container = ref.parentNode.parentNode;
+    container.appendChild(div);
+
+    RHButtons = div;
+    RHButtons.classList.add('wayfarerrh__visible');
+  }
+
+  function exportReviewHistory() {
+    const userId = getUserId();
+    const key = selection + userId;
+    let reviewData = localStorage[key];
+    if (reviewData === undefined || reviewData === null || reviewData === "" || reviewData === "false"){
+      alert("There is no saved data to export.");
+      return;
+    }
+
+    const blob = new Blob([reviewData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    let dlAnchorElem = document.getElementById('downloadAnchorElem');
+    dlAnchorElem.setAttribute("href",     url     );
+    dlAnchorElem.setAttribute("download", key+".json");
+    dlAnchorElem.click();
 
   }
+
+  function clearReviewHistory() {
+    let type = "nomination review";
+    if (selection === "wfrhSavedEdits_")
+      type = "edit review"
+    if (selection === "wfrhSavedPhotos_");
+      type = "photo review"
+    if (confirm('Your saved ' + type + ' history will be cleared. Are you sure you want to do this?', '') == false) {
+      return;
+    }
+
+    const userId = getUserId();
+    key = selection + userId;
+    localStorage[key] = [];
+  }
+    
 
   function parseReview(data) {
     try {
@@ -141,7 +244,7 @@ function init() {
     } else if (photo) {
       ret = localStorage["wfrhSavedPhotos_" + userId];
     } else {
-      ret = localStorage["wfrhSaved" + userId];
+      ret = localStorage["wfrhSaved_" + userId];
     }
     if (ret === undefined || ret === null || ret === "" || ret === "false"){
       reviewHistory = [];
@@ -154,7 +257,7 @@ function init() {
   function saveUserHistory(reviewHistory, edit, photo) {
     const userId = getUserId();
     console.log(userId);
-    let key = "wfrhSaved" + userId;
+    let key = "wfrhSaved_" + userId;
     let value = JSON.stringify(reviewHistory);
     if (edit) {
       key = "wfrhSavedEdits_" + userId;
@@ -194,20 +297,27 @@ function init() {
 
     if (candidate.type == 'EDIT') {
       edit = true;
-      const {id, title, description} = candidate;
+      const {id, title, description, descriptionEdits, titleEdits, locationEdits} = candidate;
       saveData = { 
         id,
         title,
-        description
+        description, 
+        descriptionEdits, 
+        titleEdits, 
+        locationEdits
       }      
     }
 
     if (candidate.type == 'PHOTO') {
       photo = true;
-      const {id, title} = candidate;
+      const {id, title, description, lat, lng, newPhotos} = candidate;
       saveData = { 
         id,
-        title
+        title,
+        description,
+        lat, 
+        lng,
+        newPhotos
       }
     }
 
@@ -221,6 +331,48 @@ function init() {
     
     saveUserHistory(reviewHistory, edit, photo);
   }
+
+  function addCss() {
+    const css = `
+
+      .wayfarerrh {
+        color: #333;
+        margin-left: 2em;
+        padding-top: 0.3em;
+        text-align: center;
+        display: none;
+      }
+
+      .wayfarerrh__visible {
+        display: block;
+      }
+
+      .dark .wayfarerrh {
+        color: #ddd;
+      }
+
+      .wayfarerrh__button {
+        background-color: #e5e5e5;
+        border: none;
+        color: #ff4713;
+        padding: 4px 10px;
+        margin: 1px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+      }
+
+      .wayfarerrh__hiddendl {
+        display: none;
+      }
+      `;
+    const style = document.createElement('style');
+    style.type = 'text/css';
+    style.innerHTML = css;
+    document.querySelector('head').appendChild(style);
+  }
+
 }
 
 init();
