@@ -2,9 +2,9 @@
 // @name         Wayfarer RH
 // @version      0.0.1
 // @description  Add local review history storage to Wayfarer
-// @namespace    https://gitlab.com/zAlfonsoML/wayfarer/
-// @downloadURL  https://gitlab.com/zAlfonsoML/wayfarer/raw/master/wayfarer-translate.user.js
-// @homepageURL  https://gitlab.com/zAlfonsoML/wayfarer/
+// @namespace    https://github.com/tehstone/wayfarer-rh
+// @downloadURL  https://github.com/tehstone/wayfarer-rh/raw/main/wayfarer-rh.user.js
+// @homepageURL  https://github.com/tehstone/wayfarer-rh
 // @match        https://wayfarer.nianticlabs.com/*
 // ==/UserScript==
 
@@ -91,10 +91,23 @@ function init() {
       // if (json.captcha)
       //   return;
 
-      // todo figure out how to set type based on data
-      let reviewHistory = getReviewHistory(false);
-
       const userReview = JSON.parse(data);
+      const type = userReview["type"];
+      let edit = false;
+      let photo = false;
+
+      if (type === null) {
+        return;
+      } 
+      if (type == "EDIT") {
+        edit = true;
+      }
+      if (type == "PHOTO") {
+        photo = true;
+      }
+
+      let reviewHistory = getReviewHistory(edit, photo);
+
       if (!userReview) {
         //console.log(json);
         alert('Wayfarer\'s response didn\'t include a candidate.');
@@ -109,7 +122,7 @@ function init() {
       } else {
         // do nothing for now
       }
-      saveUserHistory(reviewHistory, false);
+      saveUserHistory(reviewHistory, edit, photo);
       console.log(userReview);
 
     } catch (e) {
@@ -118,13 +131,15 @@ function init() {
 
   }
 
-  function getReviewHistory(edit) {
+  function getReviewHistory(edit, photo) {
     let reviewHistory = [];
     const userId = getUserId();
     console.log(userId);
     let ret = "";
     if (edit) {
       ret = localStorage["wfrhSavedEdits_" + userId];
+    } else if (photo) {
+      ret = localStorage["wfrhSavedPhotos_" + userId];
     } else {
       ret = localStorage["wfrhSaved" + userId];
     }
@@ -136,13 +151,15 @@ function init() {
     return reviewHistory;
   }
 
-  function saveUserHistory(reviewHistory, edit) {
+  function saveUserHistory(reviewHistory, edit, photo) {
     const userId = getUserId();
     console.log(userId);
     let key = "wfrhSaved" + userId;
     let value = JSON.stringify(reviewHistory);
     if (edit) {
       key = "wfrhSavedEdits_" + userId;
+    } else if (photo) {
+      key = "wfrhSavedPhotos_" + userId;
     }
     try{
     //Do a simple save, this will throw an exception if the localStorage is full
@@ -155,7 +172,10 @@ function init() {
   function saveReviewInfo() {
     const ref = document.querySelector('wf-logo');
 
+    let reviewHistory = [];
     let saveData = {};
+    let edit = false;
+    let photo = false;
 
     if (candidate.type == 'NEW') {
       const {id, title, description, lat, lng, imageUrl, statement, supportingImageUrl} = candidate;
@@ -170,25 +190,36 @@ function init() {
         supportingImageUrl,
         ts: +new Date(),
       }
-
     }
 
-    let reviewHistory = getReviewHistory(false);
+    if (candidate.type == 'EDIT') {
+      edit = true;
+      const {id, title, description} = candidate;
+      saveData = { 
+        id,
+        title,
+        description
+      }      
+    }
+
+    if (candidate.type == 'PHOTO') {
+      photo = true;
+      const {id, title} = candidate;
+      saveData = { 
+        id,
+        title
+      }
+    }
+
+    reviewHistory = getReviewHistory(edit, photo);
+
     const lastItem = reviewHistory.length ? reviewHistory[reviewHistory.length - 1] : null;
     const isSameReview = lastItem && lastItem.id && lastItem.id === saveData.id || false;
     if (!isSameReview) {
       reviewHistory.push(saveData);
     }
     
-    saveUserHistory(reviewHistory, false);
-    // if (candidate.type == 'EDIT') {
-    //   const title = candidate.title || candidate.titleEdits.map(d=>d.value).join(SPACING);
-    //   const description = candidate.description || candidate.descriptionEdits.map(d=>d.value).join(SPACING);
-    //   text = title + SPACING + SPACING + description;
-    // }
-    // if (candidate.type == 'PHOTO') {
-    //   text = candidate.title + SPACING + candidate.description;
-    // }
+    saveUserHistory(reviewHistory, edit, photo);
   }
 }
 
