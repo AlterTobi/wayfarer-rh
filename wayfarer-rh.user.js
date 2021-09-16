@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Wayfarer RH
-// @version      0.0.1
+// @version      0.1.0
 // @description  Add local review history storage to Wayfarer
 // @namespace    https://github.com/tehstone/wayfarer-rh
 // @downloadURL  https://github.com/tehstone/wayfarer-rh/raw/main/wayfarer-rh.user.js
